@@ -1,0 +1,31 @@
+Modelo IA local — Qwen3 0.6B (100% libre, sin autorización)
+============================================================
+
+Licencia: Apache 2.0 — NO pide cuenta ni aceptar términos en Hugging Face.
+
+PASOS (solo una vez):
+
+1. Abre este enlace y descarga el archivo (clic en la flecha ↓):
+   https://huggingface.co/litert-community/Qwen3-0.6B/tree/main
+
+   Archivo recomendado: qwen3_0_6b_mixed_int4.litertlm (~475 MB)
+
+2. Copia el archivo en ESTA carpeta con el mismo nombre:
+   assets/models/qwen3_0_6b_mixed_int4.litertlm
+
+3. Recompila:
+   flutter run
+
+SIN EL ARCHIVO:
+La voz funciona igual con palabras clave. Di:
+  «Cover, descarga el baño»
+  «Cover, tira la cadena»
+
+CON EL ARCHIVO:
+Qwen3 filtra frases ambiguas en el teléfono (sin internet).
+
+OTROS MODELOS LIBRES (si quieres más calidad, más peso):
+- DeepSeek R1 Distill 1.5B — MIT, ~1.7 GB
+- Gemma 4 E2B — Apache 2.0, ~2.5 GB (sin gate en litert-community)
+
+Para este inodoro, Qwen3 0.6B sobra con creces.

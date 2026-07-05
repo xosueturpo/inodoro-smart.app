@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light only" />
+  <title>Inodoro Smart — Documentación del sistema</title>
+  <style>
+    :root {
+      color-scheme: light only;
+      --bg: #f5f5f7;
+      --fg: #1c1c1e;
+      --muted: #6e6e73;
+      --line: #d2d2d7;
+      --card: #ffffff;
+      --head: #fafafa;
+      --code: #f2f2f7;
+      --max: 46rem;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      font-size: 17px;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+        Roboto, Helvetica, Arial, sans-serif;
+      color: var(--fg);
+      background: var(--bg);
+      line-height: 1.55;
+      letter-spacing: -0.01em;
+    }
+
+    main {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 4.5rem;
+    }
+
+    header.page-header {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1.75rem 1.35rem;
+      margin-bottom: 1.25rem;
+    }
+
+    header.page-header p.meta {
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-top: 0.65rem;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      color: var(--fg);
+    }
+
+    h2 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin: 0 0 0.85rem;
+      color: var(--fg);
+    }
+
+    h3 {
+      font-size: 0.98rem;
+      font-weight: 600;
+      margin: 0 0 0.75rem;
+      color: var(--fg);
+    }
+
+    p {
+      margin-bottom: 0.85rem;
+      color: var(--fg);
+    }
+
+    p:last-child {
+      margin-bottom: 0;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    ul, ol {
+      margin: 0 0 0 1.15rem;
+    }
+
+    li {
+      margin-bottom: 0.4rem;
+    }
+
+    li:last-child {
+      margin-bottom: 0;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1.25rem 1.2rem;
+      margin-bottom: 1rem;
+    }
+
+    .card > h2:first-child,
+    .card > h3:first-child {
+      margin-top: 0;
+    }
+
+    .card-intro {
+      margin-bottom: 1rem;
+    }
+
+    .card-grid {
+      display: grid;
+      gap: 1rem;
+    }
+
+    @media (min-width: 720px) {
+      .card-grid.two {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.45rem;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--card);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      min-width: 280px;
+    }
+
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 0.7rem 0.8rem;
+      border-bottom: 1px solid var(--line);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      background: var(--head);
+    }
+
+    td:first-child {
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    code, .mono {
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.86em;
+      background: var(--code);
+      color: var(--fg);
+      padding: 0.1em 0.35em;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+    }
+
+    footer {
+      margin-top: 0.5rem;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 1.1rem 1.2rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="page-header">
+      <h1>Inodoro Smart</h1>
+      <p class="meta">
+        Documentación técnica del sistema · Firmware UNO-GR-26
+      </p>
+    </header>
+
+    <section class="card">
+      <h2>1. Descripción del proyecto</h2>
+      <p>
+        Inodoro Smart es un sistema embebido de control para un inodoro automatizado.
+        Combina un microcontrolador Arduino UNO (actuadores y sensores locales), un
+        ESP32 (comunicación inalámbrica y pantalla) y una aplicación móvil Flutter
+        (control remoto y comandos de voz).
+      </p>
+      <p>
+        El sistema permite abrir la tapa por proximidad, ejecutar una descarga de
+        agua, recargar el tanque según el nivel medido por un sensor, y mostrar el
+        estado en una pantalla LCD. La aplicación se conecta por Bluetooth o por
+        red local (Wi‑Fi / LAN).
+      </p>
+    </section>
+
+    <section class="card">
+      <p class="label">Arquitectura en tres capas</p>
+      <ol>
+        <li><strong>Arduino UNO</strong> — decide y ejecuta acciones físicas (servos, relé, sensores, buzzer, LEDs).</li>
+        <li><strong>ESP32</strong> — puente de comunicación (BLE / Wi‑Fi / HTTP) y controlador del LCD; reenvía comandos al UNO por UART.</li>
+        <li><strong>Aplicación móvil</strong> — interfaz de usuario, botones de control y reconocimiento de voz (clasificación de intención con Gemini).</li>
+      </ol>
+    </section>
+
+    <section class="card">
+      <h2>2. Componentes del hardware</h2>
+      <p class="muted card-intro">
+        Lista de elementos utilizados en el montaje, incluyendo placas, sensores,
+        actuadores y la placa de pruebas (protoboard).
+      </p>
+
+      <h3>2.1 Placas de control</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Componente</th>
+              <th>Función</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Arduino UNO</td>
+              <td>
+                Cerebro de los actuadores y sensores. Ejecuta descarga, recarga,
+                tapa, válvula, buzzer y LEDs. Firmware actual: <code>UNO-GR-26</code>.
+              </td>
+            </tr>
+            <tr>
+              <td>ESP32</td>
+              <td>
+                Conectividad BLE y Wi‑Fi, servidor HTTP local, pantalla LCD I2C y
+                pasarela UART hacia el Arduino (comandos y eventos).
+              </td>
+            </tr>
+            <tr>
+              <td>Protoboard</td>
+              <td>
+                Placa de pruebas donde se interconectan sensores, actuadores,
+                alimentación y cables entre UNO, ESP32 y periféricos sin soldadura.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>2.2 Sensores</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Componente</th>
+              <th>Conexión</th>
+              <th>Función</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>HC-SR04 (tapa)</td>
+              <td>Trig D2, Echo D3</td>
+              <td>
+                Detecta la mano a unos 5&nbsp;cm para abrir la tapa. No cierra la tapa
+                al alejar la mano.
+              </td>
+            </tr>
+            <tr>
+              <td>HC-SR04 (descarga)</td>
+              <td>Trig D6, Echo D7</td>
+              <td>
+                Detecta proximidad para iniciar una descarga automática cuando el
+                sistema está en reposo.
+              </td>
+            </tr>
+            <tr>
+              <td>Sensor de nivel de agua (3 pines: +, −, S)</td>
+              <td>S → A0</td>
+              <td>
+                Lectura analógica cruda (<code>analogRead(A0)</code>, 0–1023). Durante
+                la recarga, el tanque se considera lleno si el valor supera 400.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>2.3 Actuadores</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Componente</th>
+              <th>Conexión</th>
+              <th>Función</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Servo tapa</td>
+              <td>Señal en A3</td>
+              <td>
+                Abre la tapa a 85° (movimiento suave) y la cierra a 0° únicamente al
+                iniciar una descarga.
+              </td>
+            </tr>
+            <tr>
+              <td>Servo válvula (11&nbsp;kg·cm)</td>
+              <td>Señal en D5</td>
+              <td>
+                Acciona la válvula de descarga: 0° cerrado, 20° abierto. Mantiene
+                presión (HOLD) en ambas posiciones.
+              </td>
+            </tr>
+            <tr>
+              <td>Relé</td>
+              <td>D10</td>
+              <td>
+                Activa la recarga de agua del tanque. Solo se enciende en modo recarga.
+              </td>
+            </tr>
+            <tr>
+              <td>Buzzer</td>
+              <td>D4</td>
+              <td>
+                Señales acústicas: tres pitidos al iniciar descarga; un pitido de 1&nbsp;s
+                al iniciar recarga.
+              </td>
+            </tr>
+            <tr>
+              <td>Registro 74HC595 + LEDs RGB</td>
+              <td>D11, D12, D13</td>
+              <td>
+                Indicadores de estado: verde (reposo), azul parpadeante (descarga),
+                cian (recarga), rojo (agua insuficiente).
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>2.4 Interfaz y comunicación</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Componente</th>
+              <th>Conexión</th>
+              <th>Función</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>LCD I2C (16×2)</td>
+              <td>ESP32 SDA D21, SCL D22</td>
+              <td>
+                Muestra mensajes de estado enviados por el Arduino a través del ESP32
+                (por ejemplo: «Descargando Agua», «Recargando Tanque»).
+              </td>
+            </tr>
+            <tr>
+              <td>Enlace UART UNO ↔ ESP32</td>
+              <td>ESP32 TX2→UNO D8, ESP32 RX2←UNO D9, GND común, 9600 baud</td>
+              <td>
+                Canal serie entre placas: comandos hacia el UNO y eventos / líneas LCD
+                hacia el ESP32.
+              </td>
+            </tr>
+            <tr>
+              <td>Dispositivo móvil (app Flutter)</td>
+              <td>BLE o Wi‑Fi / LAN</td>
+              <td>
+                Control manual (descarga, recarga, levantar tapa) y comandos de voz.
+              </td>
+            </tr>
+            <tr>
+              <td>Fuente de alimentación externa 5&nbsp;V</td>
+              <td>Servos y módulos de potencia</td>
+              <td>
+                Alimenta servos de alto torque (p. ej. 11&nbsp;kg). El USB del Arduino no
+                basta para mantener presión en la válvula.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>3. Estados del sistema</h2>
+      <p class="card-intro">
+        El Arduino opera en uno de tres modos principales. Solo uno está activo a la vez.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Estado</th>
+              <th>Qué significa</th>
+              <th>Qué se permite</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Reposo</td>
+              <td>Sistema en espera, LED verde.</td>
+              <td>
+                Abrir tapa (sensor o app), iniciar descarga, iniciar recarga.
+              </td>
+            </tr>
+            <tr>
+              <td>Descarga</td>
+              <td>Válvula abierta durante un tiempo fijo.</td>
+              <td>
+                No se puede abrir la tapa. Al terminar vuelve a reposo (sin recarga automática).
+              </td>
+            </tr>
+            <tr>
+              <td>Recarga</td>
+              <td>Relé activo llenando el tanque.</td>
+              <td>
+                Termina cuando el sensor de agua supera el umbral, o al llegar al tiempo máximo.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>4. Eventos del sistema</h2>
+      <p class="card-intro">
+        Los eventos son mensajes que el Arduino envía al ESP32 (y la app puede
+        consultar) para sincronizar la interfaz. Formato: <code>EVT:NOMBRE</code>.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Evento</th>
+              <th>Cuándo ocurre</th>
+              <th>Efecto práctico</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>FLUSH_START</code></td>
+              <td>Al comenzar la descarga.</td>
+              <td>
+                La app muestra el ciclo de descarga en curso. La tapa ya se cerró a 0°.
+                LCD: «Descargando Agua».
+              </td>
+            </tr>
+            <tr>
+              <td><code>FLUSH_END</code></td>
+              <td>Al terminar los 10&nbsp;s de descarga.</td>
+              <td>
+                La válvula vuelve a 0° (cerrada). El sistema entra en reposo. No inicia
+                recarga sola.
+              </td>
+            </tr>
+            <tr>
+              <td><code>REFILL_START</code></td>
+              <td>Al iniciar recarga (botón, voz o comando <code>REFILL</code>).</td>
+              <td>
+                Relé ON, LED cian, LCD «Recargando / Tanque». Se lee el nivel de agua
+                en A0 de forma continua.
+              </td>
+            </tr>
+            <tr>
+              <td><code>REFILL_END</code></td>
+              <td>
+                Cuando el nivel supera 400, o cuando pasan 5 minutos sin alcanzarlo.
+              </td>
+              <td>
+                Relé OFF. Si hubo éxito: LED verde y LCD «Inodoro Smart». Si falló:
+                LED rojo y LCD «No hay suficiente / agua».
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>4.1 Comandos que recibe el Arduino</h3>
+      <p class="muted card-intro">Llegan por UART desde el ESP32 (app BLE o HTTP).</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Comando</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>FLUSH</code></td>
+              <td>Inicia descarga (cierra tapa, abre válvula 10&nbsp;s).</td>
+            </tr>
+            <tr>
+              <td><code>REFILL</code></td>
+              <td>Inicia recarga del tanque (solo en reposo).</td>
+            </tr>
+            <tr>
+              <td><code>LID_OPEN</code></td>
+              <td>Abre la tapa a 85° (solo en reposo y si no está ya abierta).</td>
+            </tr>
+            <tr>
+              <td><code>LID_CLOSE</code></td>
+              <td>No cierra la tapa por comando; el cierre ocurre solo al descargar.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>5. Flujos de operación</h2>
+      <div class="card-grid">
+        <div>
+          <h3>5.1 Apertura de tapa</h3>
+          <ol>
+            <li>El sistema debe estar en <strong>reposo</strong>.</li>
+            <li>El sensor de tapa (D2/D3) detecta un objeto entre 2 y 5&nbsp;cm, confirmado en 3 lecturas seguidas.</li>
+            <li>El servo en A3 sube de forma suave (1° cada 18&nbsp;ms) hasta 85°.</li>
+            <li>La tapa permanece abierta aunque se retire la mano.</li>
+            <li>Durante la descarga no puede volver a abrirse.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>5.2 Descarga</h3>
+      <ol>
+        <li>Se inicia por app (<code>FLUSH</code>), voz, o sensor de proximidad en D6/D7 (mano a 5&nbsp;cm en reposo).</li>
+        <li>Se bloquea la apertura de tapa.</li>
+        <li>La tapa baja a 0° (si estaba abierta).</li>
+        <li>Suena el buzzer (3 pitidos cortos).</li>
+        <li>Se emite <code>FLUSH_START</code>; la válvula pasa a 20° y se mantiene con presión.</li>
+        <li>Durante 10&nbsp;s el LED azul parpadea.</li>
+        <li>Se emite <code>FLUSH_END</code>; la válvula vuelve a 0° y el sistema a reposo.</li>
+      </ol>
+    </section>
+
+    <section class="card">
+      <h3>5.3 Recarga del tanque</h3>
+      <ol>
+        <li>Solo se inicia de forma explícita (app o voz), no después de una descarga.</li>
+        <li>Relé ON; se lee A0 cada ~150&nbsp;ms.</li>
+        <li>Si el valor crudo es mayor que 400, la recarga termina con éxito.</li>
+        <li>Si en 5 minutos no se supera 400, se detiene y se indica agua insuficiente (LED rojo + mensaje en LCD).</li>
+      </ol>
+    </section>
+
+    <section class="card">
+      <h2>6. Parámetros y duraciones</h2>
+      <p class="muted card-intro">
+        Valores configurados en el firmware del Arduino. Explicados en lenguaje cotidiano.
+      </p>
+
+      <h3>6.1 Descarga</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Parámetro</th>
+              <th>Valor</th>
+              <th>Significado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Duración de descarga</td>
+              <td>10&nbsp;s</td>
+              <td>Tiempo que la válvula permanece abierta.</td>
+            </tr>
+            <tr>
+              <td>Ángulo válvula cerrada</td>
+              <td>0°</td>
+              <td>Posición de reposo / sellado.</td>
+            </tr>
+            <tr>
+              <td>Ángulo válvula abierta</td>
+              <td>20°</td>
+              <td>Posición de descarga.</td>
+            </tr>
+            <tr>
+              <td>Tiempo de movimiento válvula</td>
+              <td>1,8&nbsp;s + 0,5&nbsp;s de asentado</td>
+              <td>Tiempo para llegar y estabilizar la posición.</td>
+            </tr>
+            <tr>
+              <td>Refresco HOLD</td>
+              <td>cada 80&nbsp;ms</td>
+              <td>El servo sigue recibiendo señal para no ceder ante la presión de la válvula.</td>
+            </tr>
+            <tr>
+              <td>Parpadeo LED azul</td>
+              <td>cada 250&nbsp;ms</td>
+              <td>Indicador visual durante la descarga.</td>
+            </tr>
+            <tr>
+              <td>Buzzer descarga</td>
+              <td>3 pitidos de 150&nbsp;ms, pausa 150&nbsp;ms</td>
+              <td>Aviso acústico al inicio.</td>
+            </tr>
+            <tr>
+              <td>Cooldown sensor descarga</td>
+              <td>1,5&nbsp;s</td>
+              <td>Tras volver a reposo, espera antes de aceptar otra activación por proximidad.</td>
+            </tr>
+            <tr>
+              <td>Distancia activación descarga</td>
+              <td>2–5&nbsp;cm</td>
+              <td>Rango del HC-SR04 de descarga (D6/D7).</td>
+            </tr>
+            <tr>
+              <td>Confirmaciones</td>
+              <td>3 lecturas</td>
+              <td>Evita falsos positivos por ruido del sensor.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>6.2 Recarga</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Parámetro</th>
+              <th>Valor</th>
+              <th>Significado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Umbral de nivel OK</td>
+              <td>ADC &gt; 400</td>
+              <td>Valor crudo en A0 que indica tanque suficientemente lleno.</td>
+            </tr>
+            <tr>
+              <td>Tiempo máximo de recarga</td>
+              <td>5 minutos</td>
+              <td>
+                Límite de espera mientras se vigila el sensor. Si antes se supera 400,
+                termina antes.
+              </td>
+            </tr>
+            <tr>
+              <td>Intervalo de lectura de nivel</td>
+              <td>150&nbsp;ms</td>
+              <td>Frecuencia de muestreo de A0 durante la recarga.</td>
+            </tr>
+            <tr>
+              <td>Buzzer recarga</td>
+              <td>1&nbsp;s continuo</td>
+              <td>Aviso al iniciar el llenado.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>6.3 Tapa</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Parámetro</th>
+              <th>Valor</th>
+              <th>Significado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Ángulo cerrado</td>
+              <td>0°</td>
+              <td>Tapa bajada.</td>
+            </tr>
+            <tr>
+              <td>Ángulo abierto</td>
+              <td>85°</td>
+              <td>Tapa levantada.</td>
+            </tr>
+            <tr>
+              <td>Paso de subida</td>
+              <td>1° cada 18&nbsp;ms</td>
+              <td>Apertura suave (~1,5&nbsp;s de 0° a 85°).</td>
+            </tr>
+            <tr>
+              <td>Paso de bajada</td>
+              <td>1° cada 12&nbsp;ms</td>
+              <td>Cierre al iniciar descarga (~1&nbsp;s).</td>
+            </tr>
+            <tr>
+              <td>Distancia de activación</td>
+              <td>2–5&nbsp;cm</td>
+              <td>Rango del HC-SR04 de tapa (D2/D3).</td>
+            </tr>
+            <tr>
+              <td>Confirmaciones</td>
+              <td>3 lecturas</td>
+              <td>Reduce activaciones accidentales.</td>
+            </tr>
+            <tr>
+              <td>Cierre automático por tiempo</td>
+              <td>No aplica</td>
+              <td>La tapa solo se cierra al iniciar una descarga.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>6.4 Comunicación</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Parámetro</th>
+              <th>Valor</th>
+              <th>Significado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>UART UNO–ESP32</td>
+              <td>9600 baud</td>
+              <td>Velocidad del enlace serie entre placas.</td>
+            </tr>
+            <tr>
+              <td>Monitor serie Arduino</td>
+              <td>115200 baud</td>
+              <td>Depuración por USB del UNO.</td>
+            </tr>
+            <tr>
+              <td>LCD</td>
+              <td>Mensaje <code>LCD|línea1|línea2</code></td>
+              <td>Formato que el UNO envía al ESP32 para mostrar texto.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>7. Aplicación móvil</h2>
+      <p>
+        La aplicación Flutter se conecta al ESP32 por Bluetooth o por red local.
+        Ofrece, entre otras funciones:
+      </p>
+      <ul>
+        <li>Botón de descarga.</li>
+        <li>Botón de recarga del tanque.</li>
+        <li>Botón «Levantar tapa» (comando <code>LID_OPEN</code>).</li>
+        <li>Comando por voz (botón flotante): el texto se clasifica como descarga,
+          recarga o ninguna acción, primero con reglas locales y, si hace falta,
+          con la API de Gemini.</li>
+      </ul>
+      <p style="margin-top: 0.85rem;">
+        Mientras hay descarga o recarga, la app deshabilita acciones conflictivas
+        y refleja el estado mediante los eventos <code>EVT:*</code>.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>8. Resumen de cableado Arduino UNO</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Pin</th>
+              <th>Uso</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>D1</td><td>(libre en firmware actual de tapa)</td></tr>
+            <tr><td>D2</td><td>Trig sensor tapa</td></tr>
+            <tr><td>D3</td><td>Echo sensor tapa</td></tr>
+            <tr><td>D4</td><td>Buzzer</td></tr>
+            <tr><td>D5</td><td>Servo válvula</td></tr>
+            <tr><td>D6</td><td>Trig sensor descarga</td></tr>
+            <tr><td>D7</td><td>Echo sensor descarga</td></tr>
+            <tr><td>D8</td><td>RX desde ESP32 (SoftwareSerial)</td></tr>
+            <tr><td>D9</td><td>TX hacia ESP32 (SoftwareSerial)</td></tr>
+            <tr><td>D10</td><td>Relé de recarga</td></tr>
+            <tr><td>D11</td><td>Clock 74HC595</td></tr>
+            <tr><td>D12</td><td>Latch 74HC595</td></tr>
+            <tr><td>D13</td><td>Data 74HC595</td></tr>
+            <tr><td>A0</td><td>Sensor de nivel de agua (pin S)</td></tr>
+            <tr><td>A3</td><td>Servo tapa</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      Documento de referencia del proyecto Inodoro Smart.
+      Firmware documentado: UNO-GR-26.
+      Presentación: página única, tema claro, cards y tablas.
+    </footer>
+  </main>
+</body>
+</html>
