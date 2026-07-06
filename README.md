@@ -4,6 +4,8 @@ Aplicación móvil para controlar el sistema **Inodoro Smart**: un inodoro IoT c
 
 | Campo | Valor |
 |-------|--------|
+| Repositorio | https://github.com/xosueturpo/inodoro-smart.app |
+| Rama principal | `main` (solo integración estable; **no desarrollar aquí**) |
 | Nombre en tienda | **Inodoro Smart** |
 | Package Dart | `inodoro_inteligente` |
 | APK release | `inodoro-smart.apk` |
@@ -52,9 +54,49 @@ flutter doctor
 
 ## Inicio rápido
 
+### 1. Clonar el repositorio
+
 ```bash
-git clone <url-del-repo>
-cd inodoro_inteligente
+git clone https://github.com/xosueturpo/inodoro-smart.app.git
+cd inodoro-smart.app
+```
+
+HTTPS (anterior) o SSH:
+
+```bash
+git clone git@github.com:xosueturpo/inodoro-smart.app.git
+cd inodoro-smart.app
+```
+
+### 2. Crear tu rama de trabajo
+
+**No trabajes directamente en `main`.** Crea siempre una rama propia para tus cambios, versiones o experimentos:
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b feature/tu-descripcion
+```
+
+Ejemplos de nombres de rama:
+
+| Prefijo | Uso |
+|---------|-----|
+| `feature/` | Nueva funcionalidad (ej. `feature/comandos-voz-v2`) |
+| `fix/` | Corrección de bugs (ej. `fix/reconexion-ble`) |
+| `dev/` | Versión o línea de desarrollo personal (ej. `dev/jose-luis`) |
+
+Publicar tu rama en GitHub:
+
+```bash
+git push -u origin feature/tu-descripcion
+```
+
+Cuando termines, abre un **Pull Request** hacia `main` desde tu rama en GitHub. Los cambios se integran a `main` solo tras revisión o cuando el mantenedor lo apruebe.
+
+### 3. Dependencias Flutter
+
+```bash
 flutter pub get
 ```
 
@@ -351,6 +393,7 @@ Subir firmware con Arduino IDE antes de probar la app contra hardware real.
 
 ## Convenciones para contribuir
 
+- **Ramas:** nunca commitear en `main`; crear rama propia, hacer push y abrir PR.
 - Estado global: ampliar `AppProvider`; evitar estado duplicado en widgets.
 - Nuevos comandos: añadir constante en `LedCommands`, método en `AppProvider.send*`, documentar en `docs/inodoro-smart.html` y firmware UNO/ESP32.
 - Comandos de voz: ampliar `flush_intent_heuristic.dart` antes de depender más de Gemini (menor costo y latencia).
@@ -362,4 +405,4 @@ Subir firmware con Arduino IDE antes de probar la app contra hardware real.
 
 ## Licencia y contacto
 
-Proyecto privado (`publish_to: 'none'` en `pubspec.yaml`). Consultar al mantenedor del repositorio para uso y distribución.
+Repositorio público: [xosueturpo/inodoro-smart.app](https://github.com/xosueturpo/inodoro-smart.app). Consultar al mantenedor para uso comercial o distribución del APK.

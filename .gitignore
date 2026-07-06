@@ -47,3 +47,6 @@ app.*.map.json
 # Secretos Gemini (no subir claves)
 lib/core/config/gemini_api_key.local.dart
 .env
+
+# README personal de GitHub (solo local, copiar manualmente al perfil)
+README.github.personal.md
