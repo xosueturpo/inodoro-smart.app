@@ -8,7 +8,7 @@ void main() {
     await tester.pumpWidget(const InodoroSmartApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Inodoro Smart'), findsOneWidget);
+    expect(find.text('Inodoros Fuertes'), findsOneWidget);
     expect(find.text('Buscar en Bluetooth'), findsOneWidget);
     expect(find.text('Buscar en LAN'), findsOneWidget);
   });

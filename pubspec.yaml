@@ -1,5 +1,5 @@
 name: inodoro_inteligente
-description: Inodoro Smart — app Flutter para control IoT por BLE, LAN, voz y modo demo.
+description: Inodoros Fuertes — épicos y resistentes. App Flutter IoT (BLE, LAN, voz).
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -30,3 +30,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/brand/IF_logo.png
+    - assets/brand/IF_icon_512.png

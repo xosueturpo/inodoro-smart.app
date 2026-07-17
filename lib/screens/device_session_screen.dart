@@ -57,7 +57,7 @@ class _DeviceSessionScreenState extends State<DeviceSessionScreen> {
         navigationBar: CupertinoNavigationBar(
           middle: Consumer<AppProvider>(
             builder: (_, app, _) => Text(
-              app.session?.deviceName ?? 'Inodoro Smart',
+              app.session?.deviceName ?? 'Inodoros Fuertes',
               overflow: TextOverflow.ellipsis,
             ),
           ),

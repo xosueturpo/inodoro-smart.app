@@ -160,12 +160,7 @@ class _HeroHeader extends StatelessWidget {
           width: 88,
           height: 88,
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF0A84FF), Color(0xFF5AC8FA)],
-            ),
+            borderRadius: BorderRadius.circular(22),
             boxShadow: [
               BoxShadow(
                 color: AppColors.accent.withValues(alpha: 0.35),
@@ -174,10 +169,26 @@ class _HeroHeader extends StatelessWidget {
               ),
             ],
           ),
-          child: const Icon(
-            CupertinoIcons.drop_fill,
-            size: 40,
-            color: Colors.white,
+          clipBehavior: Clip.antiAlias,
+          child: Image.asset(
+            'assets/brand/IF_logo.png',
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => Container(
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF0A84FF), Color(0xFF5AC8FA)],
+                ),
+              ),
+              alignment: Alignment.center,
+              child: const Icon(
+                CupertinoIcons.drop_fill,
+                size: 40,
+                color: Colors.white,
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 22),
@@ -188,11 +199,11 @@ class _HeroHeader extends StatelessWidget {
                 : const [Color(0xFF0D47A1), Color(0xFF1976D2)],
           ).createShader(bounds),
           child: Text(
-            'Inodoro Smart',
+            'Inodoros Fuertes',
             textAlign: TextAlign.center,
             style: AppTheme.text(
               context,
-              fontSize: 34,
+              fontSize: 32,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.5,
               color: Colors.white,
@@ -200,7 +211,18 @@ class _HeroHeader extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
+        Text(
+          'Épicos y resistentes',
+          textAlign: TextAlign.center,
+          style: AppTheme.text(
+            context,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: AppColors.accent,
+          ),
+        ),
+        const SizedBox(height: 8),
         Text(
           'Control inteligente de tu baño',
           textAlign: TextAlign.center,

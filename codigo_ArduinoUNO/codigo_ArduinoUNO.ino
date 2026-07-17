@@ -1,7 +1,7 @@
 /*
  * ============================================================================
  *  INODORO SMART — Firmware Arduino UNO
- *  Versión: UNO-GR-32
+ *  Versión: UNO-GR-33
  * ============================================================================
  *
  *  El UNO controla actuadores y sensores. El ESP32 gestiona Bluetooth/WiFi,
@@ -12,6 +12,11 @@
  *  · REPOSO    — Espera comandos o detección por sensor.
  *  · DESCARGA  — 10 s con válvula abierta; cierra tapa al iniciar.
  *  · RECARGA   — Relé ON hasta ADC(A0) > 400 confirmado o timeout de 5 min.
+ *
+ *  FIABILIDAD (GR-33)
+ *  ------------------
+ *  Todo ciclo debe terminar y volver a REPOSO. Watchdogs por fase y globales
+ *  fuerzan cierre de válvula, apagado de relé/buzzer y EVT_*_END si hace falta.
  *
  *  COMUNICACIÓN UART (9600 baud)
  *  -----------------------------
@@ -137,6 +142,14 @@ const int           VALVULA_PWM_MAX_US            = 2500;
 const unsigned long VALVULA_MOVE_MS               = 1800;  // Tiempo de recorrido completo
 const unsigned long VALVULA_SETTLE_MS             = 500;   // Asentamiento tras movimiento
 const unsigned long VALVULA_HOLD_REFRESH_MS       = 80;    // Refresco PWM para mantener torque
+const unsigned long VALVULA_MOV_TIMEOUT_MS        = 4000;  // Tope duro movimiento válvula
+
+// --- Watchdogs de ciclo (garantizan vuelta a REPOSO) ---
+const unsigned long DESCARGA_PITIDOS_MAX_MS       = 3000;  // Si buzzer no termina, forzar avance
+const unsigned long DESCARGA_CICLO_MAX_MS         = 45000; // Tope total descarga → abortar a reposo
+const unsigned long RECARGA_CICLO_MAX_MS          = RECARGA_MAX_MS; // Alias explícito
+const unsigned long WATCHDOG_LOG_MS              = 10000; // Latido de depuración
+const unsigned long ESP_LINE_TIMEOUT_MS          = 2000;  // Descarta línea UART incompleta
 
 // --- UART con ESP32 ---
 const uint8_t ESP_RX_MAX_POR_LOOP = 48;   // Límite de bytes por ciclo (evita saturación)
@@ -194,10 +207,14 @@ unsigned long valvulaMovimientoInicio  = 0;
 BuzzerModo    buzzerModo             = BUZZER_OFF;
 uint8_t       buzzerBeepsRestantes     = 0;
 unsigned long buzzerHasta              = 0;
+unsigned long buzzerSecuenciaInicio    = 0;
 bool          buzzerEncendido          = false;
 
 // --- Descarga (FSM) ---
 DescargaSub   descargaSub              = DSC_IDLE;
+unsigned long descargaCicloInicio      = 0;   // Reloj del ciclo completo
+unsigned long descargaFaseInicio       = 0;   // Reloj de la sub-fase actual
+bool          descargaFlushStartEnviado = false;
 
 // --- Tapa ---
 int           tapaGradosActual         = TAPA_GRADOS_CERRADO;
@@ -212,6 +229,7 @@ uint8_t       tapaUsSampleIdx         = 0;
 char          lineBuffer[128];
 uint8_t       lineLen                  = 0;
 bool          espLinkActivo              = false;
+unsigned long ultimaRxEspByte          = 0;
 
 // --- Sistema general ---
 Modo          modo                     = MODO_REPOSO;
@@ -226,10 +244,20 @@ uint8_t       nivelConfirmCount        = 0;
 uint8_t       proxConfirmCount         = 0;
 long          proxUsSamples[3]         = {-1, -1, -1};
 uint8_t       proxUsSampleIdx          = 0;
+unsigned long ultimoWatchdogLog        = 0;
 
 // Declaraciones adelantadas
 void tapaPonerCerrada();
 void tapaEscribirGrado(int grados);
+void forzarFinValvulaMovimiento(const char *motivo);
+void abortarDescarga(const char *motivo);
+void serviceWatchdogCiclos();
+void serviceValvulaMovimiento();
+void serviceBuzzer();
+void entrarReposo(bool avisarRefillEnd);
+void entrarReposoSinServo(bool avisarRefillEnd);
+void finalizarRecargaTimeout();
+void procesarLineaEsp();
 
 
 // =============================================================================
@@ -254,19 +282,22 @@ void espLinkReanudar() {
   }
 }
 
-/** Abre UART solo si ningún servo está usando el temporizador. */
+/**
+ * Abre UART si no hay movimiento activo de válvula.
+ * La tapa permanece enganchada siempre: no debe bloquear SoftSerial.
+ */
 void espLinkAsegurar() {
-  if (!valvulaServo.attached() && !tapaServo.attached()) {
+  if (!valvulaMovimientoActivo) {
     espLinkReanudar();
   }
 }
 
 /**
- * Seguridad de recuperación: si el enlace quedó pausado sin motivo,
- * lo reactiva al final de cada ciclo del loop.
+ * Seguridad de recuperación: si el enlace quedó pausado sin movimiento
+ * de válvula en curso, lo reactiva al final de cada ciclo del loop.
  */
 void recuperarEnlace() {
-  if (!espLinkActivo && !tapaServo.attached() && !valvulaMovimientoActivo) {
+  if (!espLinkActivo && !valvulaMovimientoActivo) {
     espLinkReanudar();
   }
 }
@@ -286,12 +317,23 @@ void vaciarEspLink() {
 void serviceEsp() {
   espLinkAsegurar();
 
+  // Línea a medias sin '\n': descartar para no bloquear comandos futuros.
+  if (lineLen > 0 && ultimaRxEspByte != 0 &&
+      millis() - ultimaRxEspByte >= ESP_LINE_TIMEOUT_MS) {
+    Serial.println(F("[ESP] linea incompleta descartada"));
+    lineLen = 0;
+    lineBuffer[0] = '\0';
+    ultimaRxEspByte = 0;
+  }
+
   uint8_t leidos = 0;
   while (espLink.available() && leidos < ESP_RX_MAX_POR_LOOP) {
     const char c = espLink.read();
     leidos++;
+    ultimaRxEspByte = millis();
     if (c == '\n') {
       procesarLineaEsp();
+      ultimaRxEspByte = 0;
     } else if (c != '\r' && c >= 32 && c <= 126 && lineLen < sizeof(lineBuffer) - 1) {
       lineBuffer[lineLen++] = c;
     }
@@ -360,8 +402,15 @@ void valvulaIniciarMovimiento(int grados) {
 void serviceValvulaMovimiento() {
   if (!valvulaMovimientoActivo) return;
 
-  const unsigned long ahora = millis();
-  if (ahora - valvulaMovimientoInicio < VALVULA_MOVE_MS + VALVULA_SETTLE_MS) {
+  const unsigned long elapsed = millis() - valvulaMovimientoInicio;
+
+  // Tope duro: nunca dejar el flag activo más de VALVULA_MOV_TIMEOUT_MS.
+  if (elapsed >= VALVULA_MOV_TIMEOUT_MS) {
+    forzarFinValvulaMovimiento("timeout");
+    return;
+  }
+
+  if (elapsed < VALVULA_MOVE_MS + VALVULA_SETTLE_MS) {
     return;
   }
 
@@ -373,6 +422,22 @@ void serviceValvulaMovimiento() {
   Serial.print(F("[VALVULA "));
   Serial.print(valvulaGradosObjetivo);
   Serial.println(F("° HOLD]"));
+}
+
+/** Fuerza el fin del movimiento de válvula para no colgar la FSM. */
+void forzarFinValvulaMovimiento(const char *motivo) {
+  if (!valvulaMovimientoActivo) return;
+
+  valvulaMovimientoActivo = false;
+  valvulaServoRetener(valvulaGradosObjetivo);
+  servoInicializado = false;
+  espLinkReanudar();
+
+  Serial.print(F("[VALVULA] forzar fin ("));
+  Serial.print(motivo);
+  Serial.print(F(") → "));
+  Serial.print(valvulaGradosObjetivo);
+  Serial.println(F("° HOLD"));
 }
 
 /** Refresca el PWM de la válvula periódicamente para mantener el torque. */
@@ -415,6 +480,7 @@ void buzzerIniciarDescarga() {
   buzzerModo = BUZZER_DESCARGA;
   buzzerBeepsRestantes = BUZZER_BEEPS_DESCARGA;
   buzzerEncendido = false;
+  buzzerSecuenciaInicio = millis();
   buzzerHasta = millis();
 }
 
@@ -423,6 +489,7 @@ void buzzerIniciarRecarga() {
   if (!BUZZER_ENABLED) return;
   buzzerModo = BUZZER_RECARGA;
   buzzerEncendido = false;
+  buzzerSecuenciaInicio = millis();
   buzzerHasta = millis();
 }
 
@@ -431,6 +498,19 @@ void serviceBuzzer() {
   if (buzzerModo == BUZZER_OFF) return;
 
   const unsigned long ahora = millis();
+
+  // Tope duro: apagar si la secuencia se alarga (evita buzz permanente).
+  const unsigned long maxMs =
+      (buzzerModo == BUZZER_RECARGA) ? (BUZZER_RECARGA_MS + 500)
+                                     : DESCARGA_PITIDOS_MAX_MS;
+  if (ahora - buzzerSecuenciaInicio >= maxMs) {
+    setBuzzer(false);
+    buzzerModo = BUZZER_OFF;
+    buzzerEncendido = false;
+    Serial.println(F("[BUZZER] timeout — OFF"));
+    return;
+  }
+
   if (ahora < buzzerHasta) return;
 
   if (buzzerModo == BUZZER_RECARGA) {
@@ -602,15 +682,20 @@ void tapaCerrar() {
 void entrarReposoSinServo(bool avisarRefillEnd) {
   modo = MODO_REPOSO;
   descargaSub = DSC_IDLE;
+  descargaFlushStartEnviado = false;
   parpadeoEncendido = true;
   setRelay(false);
   setBuzzer(false);
+  buzzerModo = BUZZER_OFF;
+  buzzerEncendido = false;
   enviarByte(Q2);
   proximidadListaEn = millis() + PROXIMITY_COOLDOWN_MS;
   proxConfirmCount = 0;
   manoCerca = false;
+  nivelConfirmCount = 0;
   enviarLcd("Bienvenido", "");
   if (avisarRefillEnd) enviarEvento(F("REFILL_END"));
+  espLinkReanudar();
   Serial.println(F("[REPOSO]"));
 }
 
@@ -627,16 +712,21 @@ void entrarReposo(bool avisarRefillEnd) {
 void entrarReposoAguaInsuficiente() {
   modo = MODO_REPOSO;
   descargaSub = DSC_IDLE;
+  descargaFlushStartEnviado = false;
   parpadeoEncendido = true;
   setRelay(false);
   setBuzzer(false);
+  buzzerModo = BUZZER_OFF;
+  buzzerEncendido = false;
   enviarByte(Q1);
   proximidadListaEn = millis() + PROXIMITY_COOLDOWN_MS;
   proxConfirmCount = 0;
   manoCerca = false;
+  nivelConfirmCount = 0;
   enviarLcd("No hay suficiente", "agua");
   enviarEvento(F("REFILL_END"));
   valvulaIniciarMovimiento(VALVULA_GRADOS_CERRADO);
+  espLinkReanudar();
   Serial.println(F("[REPOSO] sin agua — LED rojo"));
 }
 
@@ -746,6 +836,10 @@ void evaluarRecarga() {
 void iniciarRecarga(const char *origen) {
   if (modo != MODO_REPOSO) return;
 
+  if (valvulaMovimientoActivo) {
+    forzarFinValvulaMovimiento("pre-recarga");
+  }
+
   modo = MODO_RECARGA;
   faseInicio = millis();
   ultimaLecturaNivel = 0;
@@ -780,6 +874,30 @@ void serviceRecarga() {
 // =============================================================================
 
 /**
+ * Aborta la descarga en curso y vuelve a REPOSO de forma segura.
+ * Garantiza EVT:FLUSH_END si ya se envió START, cierra válvula y apaga salidas.
+ */
+void abortarDescarga(const char *motivo) {
+  Serial.print(F("[DESCARGA] ABORT "));
+  Serial.println(motivo);
+
+  forzarFinValvulaMovimiento("abort-descarga");
+  setRelay(false);
+  setBuzzer(false);
+  buzzerModo = BUZZER_OFF;
+  buzzerEncendido = false;
+
+  if (descargaFlushStartEnviado) {
+    enviarLcd("Cerrando", "Valvula");
+    enviarEvento(F("FLUSH_END"));
+    descargaFlushStartEnviado = false;
+  }
+
+  descargaSub = DSC_IDLE;
+  entrarReposo(false);
+}
+
+/**
  * Solicita una descarga.
  * Origen: "app", "sensor" o "voz".
  * Solo acepta si el sistema está en reposo.
@@ -787,12 +905,22 @@ void serviceRecarga() {
 void iniciarDescarga(const char *origen) {
   if (modo != MODO_REPOSO || descargaSub != DSC_IDLE) return;
 
+  // Si un movimiento previo quedó colgado, forzar fin antes de empezar.
+  if (valvulaMovimientoActivo) {
+    forzarFinValvulaMovimiento("pre-descarga");
+  }
+
   modo = MODO_DESCARGA;
   parpadeoEncendido = true;
   tapaProxConfirmCount = 0;
   tapaProxCerca = false;
+  descargaCicloInicio = millis();
+  descargaFaseInicio = millis();
+  descargaFlushStartEnviado = false;
   setRelay(false);
   setBuzzer(false);
+  buzzerModo = BUZZER_OFF;
+  buzzerEncendido = false;
 
   // Cierra tapa al instante; durante toda la descarga no se vuelve a mover.
   tapaPonerCerrada();
@@ -800,6 +928,11 @@ void iniciarDescarga(const char *origen) {
 
   descargaSub = DSC_PITIDOS;
   buzzerIniciarDescarga();
+  // Si buzzer deshabilitado, avanzar ya (buzzerModo sigue OFF).
+  if (buzzerModo == BUZZER_OFF) {
+    descargaSub = DSC_PRE_ACTIVAR;
+    descargaFaseInicio = millis();
+  }
 
   Serial.print(F("[DESCARGA] "));
   Serial.println(origen);
@@ -809,38 +942,65 @@ void iniciarDescarga(const char *origen) {
  * Avanza la secuencia de descarga sin bloquear el loop.
  *
  * Flujo: tapa 0° → pitidos → abrir válvula → 10 s activa → cerrar válvula → reposo
+ * Cada sub-fase tiene timeout; el ciclo completo también (DESCARGA_CICLO_MAX_MS).
  */
 void serviceDescargaFsm() {
   if (modo != MODO_DESCARGA) return;
 
+  const unsigned long ahora = millis();
+
+  // Watchdog de ciclo completo: nunca quedarse en descarga indefinidamente.
+  if (ahora - descargaCicloInicio >= DESCARGA_CICLO_MAX_MS) {
+    abortarDescarga("ciclo-max");
+    return;
+  }
+
   switch (descargaSub) {
     case DSC_IDLE:
+      // Estado inconsistente: modo descarga pero sub IDLE → recuperar.
+      abortarDescarga("sub-idle");
       break;
 
     case DSC_PITIDOS:
-      if (buzzerModo == BUZZER_OFF) {
+      if (buzzerModo == BUZZER_OFF ||
+          ahora - descargaFaseInicio >= DESCARGA_PITIDOS_MAX_MS) {
+        if (buzzerModo != BUZZER_OFF) {
+          setBuzzer(false);
+          buzzerModo = BUZZER_OFF;
+          buzzerEncendido = false;
+          Serial.println(F("[DESCARGA] pitidos timeout — avance"));
+        }
         descargaSub = DSC_PRE_ACTIVAR;
+        descargaFaseInicio = ahora;
       }
       break;
 
     case DSC_PRE_ACTIVAR:
-      faseInicio = millis();
+      faseInicio = ahora;
       ultimoParpadeo = faseInicio;
       enviarByte(Q3);
       enviarLcd("Descargando Agua", "");
       enviarEvento(F("FLUSH_START"));
+      descargaFlushStartEnviado = true;
       valvulaIniciarMovimiento(VALVULA_GRADOS_ABIERTO);
       descargaSub = DSC_ABRIENDO_VALVULA;
+      descargaFaseInicio = ahora;
       break;
 
     case DSC_ABRIENDO_VALVULA:
+      if (valvulaMovimientoActivo &&
+          ahora - descargaFaseInicio >= VALVULA_MOV_TIMEOUT_MS) {
+        forzarFinValvulaMovimiento("abrir-timeout");
+      }
       if (!valvulaMovimientoActivo) {
         descargaSub = DSC_ACTIVA;
+        descargaFaseInicio = ahora;
+        // Reloj de fase activa: 10 s desde válvula ya abierta.
+        faseInicio = ahora;
       }
       break;
 
     case DSC_ACTIVA: {
-      const unsigned long ahora = millis();
       if (ahora - ultimoParpadeo >= BLINK_INTERVAL_MS) {
         parpadeoEncendido = !parpadeoEncendido;
         enviarByte(parpadeoEncendido ? Q3 : 0);
@@ -848,14 +1008,20 @@ void serviceDescargaFsm() {
       }
       if (ahora - faseInicio >= FASE_DESCARGA_MS) {
         descargaSub = DSC_FINALIZANDO;
+        descargaFaseInicio = ahora;
         enviarLcd("Cerrando", "Valvula");
         enviarEvento(F("FLUSH_END"));
+        descargaFlushStartEnviado = false;
         valvulaIniciarMovimiento(VALVULA_GRADOS_CERRADO);
       }
       break;
     }
 
     case DSC_FINALIZANDO:
+      if (valvulaMovimientoActivo &&
+          ahora - descargaFaseInicio >= VALVULA_MOV_TIMEOUT_MS) {
+        forzarFinValvulaMovimiento("cerrar-timeout");
+      }
       if (!valvulaMovimientoActivo) {
         descargaSub = DSC_IDLE;
         entrarReposoSinServo(false);
@@ -1076,7 +1242,75 @@ void serviceProximidad() {
 
 
 // =============================================================================
-// BLOQUE 18 — SETUP Y LOOP PRINCIPAL
+// BLOQUE 18 — WATCHDOG GLOBAL DE CICLOS
+// =============================================================================
+
+/**
+ * Garantiza que ningún modo quede inconsistente o colgado.
+ * · REPOSO: relé OFF, sub-FSM limpia, UART vivo.
+ * · DESCARGA: el tope de ciclo está en serviceDescargaFsm.
+ * · RECARGA: el tope de 5 min está en evaluarRecarga; aquí refuerza relé ON.
+ * · Válvula: fuerza fin si el flag de movimiento supera el tope.
+ */
+void serviceWatchdogCiclos() {
+  const unsigned long ahora = millis();
+
+  // Movimiento de válvula colgado aunque no estemos en descarga.
+  if (valvulaMovimientoActivo &&
+      ahora - valvulaMovimientoInicio >= VALVULA_MOV_TIMEOUT_MS) {
+    forzarFinValvulaMovimiento("watchdog");
+  }
+
+  if (modo == MODO_REPOSO) {
+    // Relé nunca debe quedar ON en reposo.
+    setRelay(false);
+
+    if (descargaSub != DSC_IDLE) {
+      Serial.println(F("[WD] reposo con descargaSub!=IDLE — reset"));
+      descargaSub = DSC_IDLE;
+      descargaFlushStartEnviado = false;
+    }
+
+    // Buzzer huérfano en reposo.
+    if (buzzerModo != BUZZER_OFF &&
+        ahora - buzzerSecuenciaInicio >= DESCARGA_PITIDOS_MAX_MS) {
+      setBuzzer(false);
+      buzzerModo = BUZZER_OFF;
+      buzzerEncendido = false;
+    }
+  } else if (modo == MODO_RECARGA) {
+    // Si se apagó el relé por error, reactivar durante la recarga.
+    // (setRelay es barato; asegura bomba activa hasta OK/timeout)
+    digitalWrite(relayPin, RELAY_ON);
+
+    if (ahora - faseInicio >= RECARGA_CICLO_MAX_MS) {
+      // Doble seguro por si evaluarRecarga no corrió.
+      finalizarRecargaTimeout();
+    }
+  } else if (modo == MODO_DESCARGA) {
+    // Relé OFF durante descarga (seguridad).
+    setRelay(false);
+  }
+
+  // Latido de depuración cada 10 s.
+  if (ahora - ultimoWatchdogLog >= WATCHDOG_LOG_MS) {
+    ultimoWatchdogLog = ahora;
+    Serial.print(F("[WD] modo="));
+    if (modo == MODO_REPOSO) Serial.print(F("REPOSO"));
+    else if (modo == MODO_DESCARGA) Serial.print(F("DESCARGA"));
+    else Serial.print(F("RECARGA"));
+    Serial.print(F(" dsc="));
+    Serial.print((int)descargaSub);
+    Serial.print(F(" valvMov="));
+    Serial.print(valvulaMovimientoActivo ? 1 : 0);
+    Serial.print(F(" esp="));
+    Serial.println(espLinkActivo ? 1 : 0);
+  }
+}
+
+
+// =============================================================================
+// BLOQUE 19 — SETUP Y LOOP PRINCIPAL
 // =============================================================================
 
 void setup() {
@@ -1108,7 +1342,8 @@ void setup() {
 
   // --- Información de arranque en Monitor Serial ---
   Serial.println(F("=== inodoro_smart UNO ==="));
-  Serial.println(F("FW UNO-GR-32"));
+  Serial.println(F("FW UNO-GR-33"));
+  Serial.println(F("Watchdogs: descarga/valvula/buzzer/UART → siempre a REPOSO"));
   Serial.print(F("Buzzer="));
   Serial.println(BUZZER_ENABLED ? F("ON") : F("OFF"));
   Serial.print(F("Descarga="));
@@ -1143,6 +1378,7 @@ void setup() {
 /**
  * Loop cooperativo: cada servicio se ejecuta en cada ciclo.
  * El orden prioriza movimientos y comunicación antes que sensores.
+ * El watchdog al final fuerza salida de estados inconsistentes.
  */
 void loop() {
   serviceValvulaMovimiento();
@@ -1153,5 +1389,6 @@ void loop() {
   serviceRecarga();
   serviceProximidad();
   serviceProximidadTapa();
+  serviceWatchdogCiclos();
   recuperarEnlace();
 }

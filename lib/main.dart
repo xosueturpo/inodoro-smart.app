@@ -19,7 +19,7 @@ class InodoroSmartApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => AppProvider()..initialize(),
       child: MaterialApp(
-        title: 'Inodoro Smart',
+        title: 'Inodoros Fuertes',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         darkTheme: AppTheme.dark,
